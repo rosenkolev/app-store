@@ -25,17 +25,16 @@ Home Assistant add-on: add `https://github.com/rosenkolev/bluetooth-to-speaker` 
 ```text
 apps.json                    the apps and the repositories they are released from
 Apps/<app>/                  docker-compose.yml with x-casaos, icon.png
-scripts/update.py            moves apps to their latest release
-scripts/validate.py          checks every app
+.github/workflows/store.yml  checks every app; daily, moves apps to their latest release
 ```
 
 ## Updates
 
-The **Update apps** workflow runs daily: when an app has a new release, it sets the new image tag
+The **Store** workflow runs daily: when an app has a new release, it sets the new image tag
 and commits. CasaOS and Docker Apps then offer the update.
 
 ## Add an app
 
 1. Add it to `apps.json`.
 2. Add `Apps/<app>/docker-compose.yml` with `x-casaos` and an `icon.png` (see the existing app).
-3. Run `python scripts/validate.py`.
+3. Open a pull request: the **Store** workflow checks it.

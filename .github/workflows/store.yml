@@ -1,0 +1,111 @@
+# Store checks and updates.
+#   push, pull request: check every app.
+#   daily, on demand:   move each app to the latest release of its repository, check, commit.
+name: Store
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: store-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  store:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q pyyaml
+
+      - name: Update apps to their latest release
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: python
+        run: |
+          import json, os, re, urllib.error, urllib.request
+          from pathlib import Path
+
+          def latest_release(repository):
+              req = urllib.request.Request(
+                  f"https://api.github.com/repos/{repository}/releases/latest",
+                  headers={"Accept": "application/vnd.github+json",
+                           "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}"})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as resp:
+                      tag = json.load(resp)["tag_name"]
+              except urllib.error.HTTPError as err:
+                  if err.code == 404:  # no release yet
+                      return None
+                  raise
+              return tag.removeprefix("v")
+
+          changed = []
+          for app in json.loads(Path("apps.json").read_text()):
+              version = latest_release(app["repository"])
+              if not version:
+                  print(f"{app['id']}: no release")
+                  continue
+              path = Path("Apps") / app["id"] / "docker-compose.yml"
+              text = path.read_text()
+              new = re.sub(rf"{re.escape(app['image'])}:[\w.\-]+", f"{app['image']}:{version}", text)
+              if new != text:
+                  path.write_text(new)
+                  changed.append(f"{app['id']} {version}")
+          print("updated:", ", ".join(changed) or "nothing")
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"CHANGED={', '.join(changed)}\n")
+
+      - name: Check every app
+        shell: python
+        run: |
+          import json, sys
+          from pathlib import Path
+          import yaml
+
+          problems = []
+          apps = json.loads(Path("apps.json").read_text())
+          ids = {a["id"] for a in apps}
+          if ids != {p.name for p in Path("Apps").iterdir() if p.is_dir()}:
+              problems.append("apps.json and Apps/ list different apps")
+          for app in apps:
+              folder = Path("Apps") / app["id"]
+              compose = yaml.safe_load((folder / "docker-compose.yml").read_text())
+              meta = compose.get("x-casaos") or {}
+              for key in ("id", "architectures", "main", "title", "tagline", "description", "icon", "port_map", "category"):
+                  if key not in meta:
+                      problems.append(f"{app['id']}: x-casaos.{key} missing")
+              services = compose.get("services") or {}
+              if meta.get("main") not in services:
+                  problems.append(f"{app['id']}: x-casaos.main is not a service")
+              if not (folder / "icon.png").is_file():
+                  problems.append(f"{app['id']}: icon.png missing")
+              images = [s.get("image", "") for s in services.values()]
+              if not any(i.startswith(app["image"] + ":") for i in images):
+                  problems.append(f"{app['id']}: no service uses {app['image']}")
+              if any(i.endswith((":latest", ":edge")) for i in images):
+                  problems.append(f"{app['id']}: images must use a release tag")
+          print("\n".join(problems) or f"{len(apps)} app(s) OK")
+          sys.exit(1 if problems else 0)
+
+      - name: Check the compose files
+        run: |
+          for f in Apps/*/docker-compose.yml; do
+            AppID=test docker compose -f "$f" config -q && echo "ok: $f"
+          done
+
+      - name: Commit the updates
+        if: env.CHANGED != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qam "Update $CHANGED"
+          git push -q
