@@ -1,0 +1,22 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Store files
+        run: pip install -q pyyaml && python scripts/validate.py
+      - name: CasaOS compose files
+        run: |
+          for f in casaos/*/docker-compose.yml; do
+            AppID=test docker compose -f "$f" config -q && echo "ok: $f"
+          done

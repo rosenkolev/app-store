@@ -1,0 +1,7 @@
+[
+  {
+    "id": "bluetooth-to-speaker",
+    "repository": "rosenkolev/bluetooth-to-speaker",
+    "image": "ghcr.io/rosenkolev/bluetooth-to-speaker"
+  }
+]

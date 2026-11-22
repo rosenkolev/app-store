@@ -1,0 +1,75 @@
+name: bluetooth-to-speaker
+services:
+  bluetooth-to-speaker:
+    image: ghcr.io/rosenkolev/bluetooth-to-speaker:0.1.0
+    container_name: bluetooth-to-speaker
+    restart: unless-stopped
+    # Host network: Home Assistant and Music Assistant find the DLNA player (SSDP).
+    network_mode: host
+    devices:
+      - /dev/snd:/dev/snd
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/data
+        target: /data
+      - type: bind
+        source: /run/dbus
+        target: /run/dbus
+        read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_NICE
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      BT_NAME: Bluetooth Speaker
+      HTTP_PORT: "8780"
+    x-casaos:
+      envs:
+        - container: BT_NAME
+          description:
+            en_us: Name that phones show. Also changeable in the web UI.
+        - container: HTTP_PORT
+          description:
+            en_us: Port of the web UI and the DLNA player.
+      volumes:
+        - container: /data
+          description:
+            en_us: Settings and the last connected phone.
+        - container: /run/dbus
+          description:
+            en_us: The host's Bluetooth service (BlueZ), read-only.
+x-casaos:
+  id: bluetooth-to-speaker
+  architectures:
+    - amd64
+    - arm64
+  main: bluetooth-to-speaker
+  author: Rosen Kolev
+  developer: Rosen Kolev
+  category: Media
+  title:
+    en_us: Bluetooth to Speaker
+  tagline:
+    en_us: Turn your server into a Bluetooth speaker
+  description:
+    en_us: >-
+      Phones play to your server like to any Bluetooth speaker, on the 3.5 mm jack,
+      HDMI or USB sound cards, several at once. Home Assistant and Music Assistant play
+      to it over DLNA, and MQTT gives Home Assistant controls for pairing, outputs and
+      volumes. The speaker stays hidden until you press "Pair new phone".
+  tips:
+    before_install:
+      en_us: >-
+        Needs BlueZ (bluetoothd) on the host and no other Bluetooth audio receiver
+        (PipeWire or PulseAudio with Bluetooth, bluez-alsa). With a host firewall, open
+        TCP 8780 and UDP 1900.
+  icon: https://raw.githubusercontent.com/rosenkolev/app-store/main/casaos/bluetooth-to-speaker/icon.png
+  thumbnail: https://raw.githubusercontent.com/rosenkolev/app-store/main/casaos/bluetooth-to-speaker/icon.png
+  index: /
+  port_map: "8780"
+  scheme: http
+  website: https://github.com/rosenkolev/bluetooth-to-speaker
+  repo: https://github.com/rosenkolev/bluetooth-to-speaker

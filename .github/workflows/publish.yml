@@ -1,0 +1,54 @@
+# Keeps the store up to date and publishes the CasaOS archive.
+#  1. Moves each app to the latest release of its repository (daily, or on demand).
+#  2. Builds casaos-store.zip (CasaOS wants Apps/<app>/docker-compose.yml) and attaches it
+#     to the "casaos" release, a fixed download URL for CasaOS.
+name: Publish
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update app versions
+        id: update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install -q pyyaml
+          changed=$(python scripts/update.py)
+          python scripts/validate.py
+          if [ -n "$changed" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -qam "Update $(echo "$changed" | paste -sd ', ')"
+            git push -q
+            echo "Updated: $changed"
+          fi
+      - name: Build the CasaOS archive
+        run: |
+          mkdir -p build/app-store/Apps
+          cp -r casaos/* build/app-store/Apps/
+          (cd build && zip -qr ../casaos-store.zip app-store)
+          unzip -l casaos-store.zip
+      - name: Publish the CasaOS archive
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view casaos >/dev/null 2>&1 || gh release create casaos \
+            --title "CasaOS store" --latest=false \
+            --notes "CasaOS app store archive, rebuilt on every change. Add this URL in CasaOS: https://github.com/${{ github.repository }}/releases/download/casaos/casaos-store.zip"
+          gh release upload casaos casaos-store.zip --clobber
