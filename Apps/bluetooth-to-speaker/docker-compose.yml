@@ -66,8 +66,8 @@ x-casaos:
         Needs BlueZ (bluetoothd) on the host and no other Bluetooth audio receiver
         (PipeWire or PulseAudio with Bluetooth, bluez-alsa). With a host firewall, open
         TCP 8780 and UDP 1900.
-  icon: https://raw.githubusercontent.com/rosenkolev/app-store/main/casaos/bluetooth-to-speaker/icon.png
-  thumbnail: https://raw.githubusercontent.com/rosenkolev/app-store/main/casaos/bluetooth-to-speaker/icon.png
+  icon: https://raw.githubusercontent.com/rosenkolev/app-store/main/Apps/bluetooth-to-speaker/icon.png
+  thumbnail: https://raw.githubusercontent.com/rosenkolev/app-store/main/Apps/bluetooth-to-speaker/icon.png
   index: /
   port_map: "8780"
   scheme: http

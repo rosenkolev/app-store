@@ -1,15 +1,14 @@
 """Move every app in apps.json to the latest release of its repository.
 
-Updates the image tag in the CasaOS and Runtipi files and the Runtipi version
-(tipi_version goes up by one). Prints the apps that changed. Needs GITHUB_TOKEN
-for the GitHub API (any token; the workflow token works).
+Sets the image tag in Apps/<app>/docker-compose.yml. Prints the apps that changed.
+Uses GITHUB_TOKEN for the GitHub API when set (the workflow token works).
 """
 
 import json
 import os
 import re
 import sys
-import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -33,15 +32,6 @@ def latest_release(repository: str) -> str | None:
     return tag[1:] if tag.startswith("v") else tag
 
 
-def set_image_tag(path: Path, image: str, version: str) -> bool:
-    text = path.read_text(encoding="utf-8")
-    new = re.sub(rf"{re.escape(image)}:[\w.\-]+", f"{image}:{version}", text)
-    if new != text:
-        path.write_text(new, encoding="utf-8")
-        return True
-    return False
-
-
 def main() -> int:
     apps = json.loads((ROOT / "apps.json").read_text(encoding="utf-8"))
     changed = []
@@ -50,19 +40,11 @@ def main() -> int:
         if not version:
             print(f"{app['id']}: no release", file=sys.stderr)
             continue
-        casaos = ROOT / "casaos" / app["id"] / "docker-compose.yml"
-        runtipi = ROOT / "apps" / app["id"]
-        updated = set_image_tag(casaos, app["image"], version)
-        updated |= set_image_tag(runtipi / "docker-compose.json", app["image"], version)
-        config_path = runtipi / "config.json"
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        if config.get("version") != version:
-            config["version"] = version
-            config["tipi_version"] = int(config.get("tipi_version", 0)) + 1
-            config["updated_at"] = int(time.time() * 1000)
-            config_path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-            updated = True
-        if updated:
+        path = ROOT / "Apps" / app["id"] / "docker-compose.yml"
+        text = path.read_text(encoding="utf-8")
+        new = re.sub(rf"{re.escape(app['image'])}:[\w.\-]+", f"{app['image']}:{version}", text)
+        if new != text:
+            path.write_text(new, encoding="utf-8")
             changed.append(f"{app['id']} {version}")
     print("\n".join(changed))
     return 0

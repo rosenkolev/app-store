@@ -17,6 +17,6 @@ jobs:
         run: pip install -q pyyaml && python scripts/validate.py
       - name: CasaOS compose files
         run: |
-          for f in casaos/*/docker-compose.yml; do
+          for f in Apps/*/docker-compose.yml; do
             AppID=test docker compose -f "$f" config -q && echo "ok: $f"
           done
