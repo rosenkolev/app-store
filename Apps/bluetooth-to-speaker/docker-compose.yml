@@ -16,9 +16,14 @@ services:
         source: /run/dbus
         target: /run/dbus
         read_only: true
+    # Starts as root only to give /data and the sound devices to user 1000, then runs as
+    # that user with real-time audio priority only.
     cap_drop:
       - ALL
     cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
       - SYS_NICE
     read_only: true
     security_opt:
@@ -64,8 +69,8 @@ x-casaos:
     before_install:
       en_us: >-
         Needs BlueZ (bluetoothd) on the host and no other Bluetooth audio receiver
-        (PipeWire or PulseAudio with Bluetooth, bluez-alsa). With a host firewall, open
-        TCP 8780 and UDP 1900.
+        (PipeWire or PulseAudio with Bluetooth, bluez-alsa). If something is missing,
+        the web UI shows what and the command that fixes it.
   icon: https://raw.githubusercontent.com/rosenkolev/app-store/main/Apps/bluetooth-to-speaker/icon.png
   thumbnail: https://raw.githubusercontent.com/rosenkolev/app-store/main/Apps/bluetooth-to-speaker/icon.png
   index: /
